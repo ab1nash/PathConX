@@ -111,6 +111,7 @@ def main():
     parser.add_argument('--path_agg', type=str, default='att', help='path aggregator if using rnn: mean, att')
     '''
 
+    '''
     # ===== wn18rr ===== #
     parser.add_argument('--dataset', type=str, default='wn18rr', help='dataset name')
     parser.add_argument('--epoch', type=int, default=20, help='number of epochs')
@@ -132,6 +133,7 @@ def main():
     parser.add_argument('--path_type', type=str, default='embedding', help='path representation type: embedding, rnn')
     parser.add_argument('--path_samples', type=int, default=8, help='number of sampled paths if using rnn')
     parser.add_argument('--path_agg', type=str, default='att', help='path aggregator if using rnn: mean, att')
+    '''
 
     '''
     # ===== NELL995 ===== #
@@ -157,7 +159,7 @@ def main():
     parser.add_argument('--path_agg', type=str, default='att', help='path aggregator if using rnn: mean, att')
     '''
 
-    '''
+    
     # ===== DDB14 ===== #
     parser.add_argument('--dataset', type=str, default='DDB14', help='dataset name')
     parser.add_argument('--epoch', type=int, default=20, help='number of epochs')
@@ -179,7 +181,7 @@ def main():
     parser.add_argument('--path_type', type=str, default='embedding', help='path representation type: embedding, rnn')
     parser.add_argument('--path_samples', type=int, default=8, help='number of sampled paths if using rnn')
     parser.add_argument('--path_agg', type=str, default='att', help='path aggregator if using rnn: mean, att')
-    '''
+    
 
     args = parser.parse_args()
     print_setting(args)
