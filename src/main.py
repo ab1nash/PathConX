@@ -1,5 +1,5 @@
 import argparse
-from data_loader import load_data
+from data_loader_kg import DataLoaderKG
 from train import train
 import os
 
@@ -185,7 +185,10 @@ def main():
 
     args = parser.parse_args()
     print_setting(args)
-    data = load_data(args)
+    # Two main steps: Load data and train
+
+    dataLoaderKGInstance = DataLoaderKG()
+    data = dataLoaderKGInstance.load_data(args)
     train(args, data)
 
 
