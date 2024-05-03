@@ -59,7 +59,9 @@ class DataLoaderKG(DataLoaderIface):
 
         return d
 
-
+    def read_quiplets(self, file_name):
+        pass
+    
     def read_triplets(self, file_name):
         data = []
 
@@ -172,7 +174,7 @@ class DataLoaderKG(DataLoaderIface):
         valid_triplets = self.read_triplets(directory + 'valid.txt')
         test_triplets = self.read_triplets(directory + 'test.txt')
 
-        print('processing the knowledge graph ...')
+        print('processing the static knowledge graph ...')
         self.build_kg(train_triplets)
 
         triplets = [train_triplets, valid_triplets, test_triplets]

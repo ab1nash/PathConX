@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import pickle
 import numpy as np
 from collections import defaultdict
@@ -11,7 +12,7 @@ from data_loader_interface import DataLoaderIface
 from utils import count_all_paths_with_mp, count_paths, get_path_dict_and_length, one_hot_path_id, sample_paths
 
 
-class DataLoaderKG(DataLoaderIface):
+class DataLoaderTKG(DataLoaderIface):
 
     def __init__(self) -> None:
         super().__init__()
@@ -19,6 +20,7 @@ class DataLoaderKG(DataLoaderIface):
         self.entity2edges = []  # each row in self.entity2edges is the sampled edges connecting to this entity
         self.edge2entities = []  # each row in self.edge2entities is the two entities connected by this edge
         self.edge2relation = []  # each row in self.edge2relation is the relation type of this edge
+        self.edge2ts = []  # each row in self.edge2ts is the timestamp of this edge
 
         self.e2re = defaultdict(set)  # entity index -> set of pair (relation, entity) connecting to this entity
 
@@ -28,68 +30,58 @@ class DataLoaderKG(DataLoaderIface):
 
 
     def read_entities(self, file_name):
-        d = {}
-        file = open(file_name)
-        for line in file:
-            index, name = line.strip().split('\t')
-            d[name] = int(index)
-        file.close()
-
-        return d
+        entity2id_json = open(file_name)
+        return json.load(entity2id_json)
 
 
     def read_relations(self, file_name):
-        bow = []
-        count_vec = CountVectorizer()
+        # TODO: Add support for BOW features
+        if self.args.feature_type == 'bow':
+            print('BOW features are not supported yet, falling back to defaults (ID).')
 
-        d = {}
-        file = open(file_name)
-        for line in file:
-            index, name = line.strip().split('\t')
-            d[name] = int(index)
-
-            if self.args.feature_type == 'bow' and not os.path.exists('../data/' + self.args.dataset + '/bow.npy'):
-                tokens = re.findall('[a-z]{2,}', name)
-                bow.append(' '.join(tokens))
-        file.close()
-
-        if self.args.feature_type == 'bow' and not os.path.exists('../data/' + self.args.dataset + '/bow.npy'):
-            bow = count_vec.fit_transform(bow)
-            np.save('../data/' + self.args.dataset + '/bow.npy', bow.toarray())
-
-        return d
-
+        relation2id_json = open(file_name)
+        return json.load(relation2id_json)
+    
+    def read_timestamps(self, file_name):
+        ts2id_json = open(file_name)
+        return json.load(ts2id_json)
 
     def read_triplets(self, file_name):
+        pass
+
+    def read_quiplets(self, file_name):
         data = []
 
         file = open(file_name)
         for line in file:
-            head, relation, tail = line.strip().split('\t')
+            head, relation, tail, timestamp = line.strip().split('\t')
 
             head_idx = self.entity_dict[head]
             relation_idx = self.relation_dict[relation]
             tail_idx = self.entity_dict[tail]
+            timestamp_idx = self.ts_dict[timestamp]
 
-            data.append((head_idx, tail_idx, relation_idx))
+            data.append((head_idx, tail_idx, relation_idx, timestamp_idx))
         file.close()
 
         return data
 
 
     def build_kg(self, train_data):
-        for edge_idx, triplet in enumerate(train_data):
-            head_idx, tail_idx, relation_idx = triplet
+        for edge_idx, quiplet in enumerate(train_data):
+            head_idx, tail_idx, relation_idx, ts_idx = quiplet
 
             if self.args.use_context:
                 self.entity2edge_set[head_idx].add(edge_idx)
                 self.entity2edge_set[tail_idx].add(edge_idx)
                 self.edge2entities.append([head_idx, tail_idx])
                 self.edge2relation.append(relation_idx)
+                self.edge2ts.append(ts_idx)
 
             if self.args.use_path:
-                self.e2re[head_idx].add((relation_idx, tail_idx))
-                self.e2re[tail_idx].add((relation_idx, head_idx))
+                self.e2re[head_idx].add((relation_idx, tail_idx, ts_idx))
+                self.e2re[tail_idx].add((relation_idx, head_idx, ts_idx))
+
 
         # To handle the case where a node does not appear in the training data (i.e., this node has no neighbor edge),
         # we introduce a null entity (ID: n_entities), a null edge (ID: n_edges), and a null relation (ID: n_relations).
@@ -103,8 +95,10 @@ class DataLoaderKG(DataLoaderIface):
             null_entity = len(self.entity_dict)
             null_relation = len(self.relation_dict)
             null_edge = len(self.edge2entities)
+            null_ts = len(self.ts_dict)
             self.edge2entities.append([null_entity, null_entity])
             self.edge2relation.append(null_relation)
+            self.edge2ts.append(null_ts)
 
             for i in range(len(self.entity_dict) + 1):
                 if i not in self.entity2edge_set:
@@ -164,26 +158,28 @@ class DataLoaderKG(DataLoaderIface):
         directory = '../data/' + self.args.dataset + '/'
 
         print('reading entity dict and relation dict ...')
-        self.entity_dict = self.read_entities(directory + 'entities.dict')
-        self.relation_dict = self.read_relations(directory + 'relations.dict')
+        self.entity_dict = self.read_entities(directory + 'entity2id.json')
+        self.relation_dict = self.read_relations(directory + 'relation2id.json')
+        self.ts_dict = self.read_timestamps(directory + 'ts2id.json')
 
         print('reading train, validation, and test data ...')
-        train_triplets = self.read_triplets(directory + 'train.txt')
-        valid_triplets = self.read_triplets(directory + 'valid.txt')
-        test_triplets = self.read_triplets(directory + 'test.txt')
+        train_quiplets = self.read_quiplets(directory + 'train.txt')
+        valid_quiplets = self.read_quiplets(directory + 'valid.txt')
+        test_quiplets = self.read_quiplets(directory + 'test.txt')
 
-        print('processing the knowledge graph ...')
-        self.build_kg(train_triplets)
+        print('processing the temporal knowledge graph ...')
+        self.build_kg(train_quiplets)
 
-        triplets = [train_triplets, valid_triplets, test_triplets]
+        quiplets = [train_quiplets, valid_quiplets, test_quiplets]
 
         if self.args.use_context:
-            neighbor_params = [np.array(self.entity2edges), np.array(self.edge2entities), np.array(self.edge2relation)]
+            neighbor_params = [np.array(self.entity2edges), np.array(self.edge2entities), np.array(self.edge2relation), np.array(self.edge2ts)]
         else:
             neighbor_params = None
 
+        # todohere
         if self.args.use_path:
-            train_paths, valid_paths, test_paths = self.get_paths(train_triplets, valid_triplets, test_triplets)
+            train_paths, valid_paths, test_paths = self.get_paths(train_quiplets, valid_quiplets, test_quiplets)
             path2id, id2path, id2length = get_path_dict_and_length(
                 train_paths, valid_paths, test_paths, len(self.relation_dict), self.args.max_path_len)
 
@@ -200,4 +196,4 @@ class DataLoaderKG(DataLoaderIface):
             paths = [None] * 3
             path_params = None
 
-        return triplets, paths, len(self.relation_dict), neighbor_params, path_params
+        return quiplets, paths, len(self.relation_dict), neighbor_params, path_params

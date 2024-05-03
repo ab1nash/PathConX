@@ -162,7 +162,7 @@ def main():
 
     
     # ===== DDB14 ===== #
-    parser.add_argument('--dataset', type=str, default='DDB14', help='dataset name')
+    parser.add_argument('--dataset', type=str, default='icewsmall', help='dataset name')
     parser.add_argument('--epoch', type=int, default=20, help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=128, help='batch size')
     parser.add_argument('--dim', type=int, default=64, help='hidden dimension')
@@ -188,11 +188,11 @@ def main():
     print_setting(args)
     # Two main steps: Load data and train
 
-    dataLoaderKGInstance = DataLoaderKG()
-    data = dataLoaderKGInstance.load_data(args)
+    # dataLoaderKGInstance = DataLoaderKG()
+    # data = dataLoaderKGInstance.load_data(args)
 
-    # dataLoaderTKGInstance = DataLoaderTKG()
-    # data = dataLoaderTKGInstance.load_data(args)
+    dataLoaderTKGInstance = DataLoaderTKG()
+    data = dataLoaderTKGInstance.load_data(args)
 
     train(args, data)
 

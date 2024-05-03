@@ -21,6 +21,10 @@ class DataLoaderIface(ABC):
         pass
 
     @abstractmethod
+    def read_quiplets():
+        pass
+
+    @abstractmethod
     def build_kg():
         pass
 
