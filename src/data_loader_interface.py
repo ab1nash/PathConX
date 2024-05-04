@@ -39,3 +39,7 @@ class DataLoaderIface(ABC):
     @abstractmethod
     def load_data():
         pass
+
+    @abstractmethod
+    def count_paths():
+        pass

@@ -9,7 +9,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from data_loader_interface import DataLoaderIface
 
 # todo
-from utils import count_all_paths_with_mp, count_paths, get_path_dict_and_length, one_hot_path_id, sample_paths
+from utils import count_all_paths_with_mp, count_all_paths_with_joblib, get_path_dict_and_length, one_hot_path_id, sample_paths
 
 
 class DataLoaderTKG(DataLoaderIface):
@@ -110,10 +110,24 @@ class DataLoaderTKG(DataLoaderIface):
 
     def get_h2t(self, train_triplets, valid_triplets, test_triplets):
         head2tails = defaultdict(set)
-        for head, tail, relation in train_triplets + valid_triplets + test_triplets:
+        for head, tail, _rel_, _ts_ in train_triplets + valid_triplets + test_triplets:
             head2tails[head].add(tail)
         return head2tails
 
+
+    def count_paths(self, triplets, ht2paths, train_set):
+        res = []
+
+        for head, tail, relation, ts in triplets:
+            path_set = ht2paths[(head, tail)]
+            if (tail, head, relation) in train_set:
+                path_list = list(path_set)
+            else:
+                path_list = list(path_set - {tuple([relation])})
+            res.append([list(i) for i in path_list])
+
+        return res
+    
 
     def get_paths(self, train_triplets, valid_triplets, test_triplets):
         directory = '../data/' + self.args.dataset + '/cache/'
@@ -131,11 +145,12 @@ class DataLoaderTKG(DataLoaderIface):
         else:
             print('counting paths from head to tail ...')
             head2tails = self.get_h2t(train_triplets, valid_triplets, test_triplets)
-            ht2paths = count_all_paths_with_mp(self.e2re, self.args.max_path_len, [(k, v) for k, v in head2tails.items()])
+            ht2paths = count_all_paths_with_joblib(self.e2re, self.args.max_path_len, [(k, v) for k, v in head2tails.items()])
             train_set = set(train_triplets)
-            train_paths = count_paths(train_triplets, ht2paths, train_set)
-            valid_paths = count_paths(valid_triplets, ht2paths, train_set)
-            test_paths = count_paths(test_triplets, ht2paths, train_set)
+            # todo: we can add time params here
+            train_paths = self.count_paths(train_triplets, ht2paths, train_set)
+            valid_paths = self.count_paths(valid_triplets, ht2paths, train_set)
+            test_paths = self.count_paths(test_triplets, ht2paths, train_set)
 
             print('dumping paths to files ...')
             pickle.dump(train_paths, open(directory + 'train_paths_' + length + '.pkl', 'wb'))
@@ -177,7 +192,6 @@ class DataLoaderTKG(DataLoaderIface):
         else:
             neighbor_params = None
 
-        # todohere
         if self.args.use_path:
             train_paths, valid_paths, test_paths = self.get_paths(train_quiplets, valid_quiplets, test_quiplets)
             path2id, id2path, id2length = get_path_dict_and_length(

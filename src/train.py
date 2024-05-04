@@ -48,6 +48,7 @@ def train(model_args, data):
             test_entity_pairs = test_entity_pairs.cuda()
 
     # prepare for top-k evaluation
+    # todohere
     true_relations = defaultdict(set)
     for head, tail, relation in train_triplets + valid_triplets + test_triplets:
         true_relations[(head, tail)].add(relation)

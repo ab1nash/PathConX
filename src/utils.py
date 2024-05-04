@@ -3,8 +3,17 @@ import multiprocessing as mp
 import scipy.sparse as sp
 from collections import defaultdict
 
+from joblib import Parallel, delayed
+
 
 def count_all_paths_with_mp(e2re, max_path_len, head2tails):
+    '''
+    A parallel version of count_all_paths
+
+    :param e2re: entity to relation dictionary
+    :param max_path_len: maximum length of paths
+    :param head2tails: [(head, {tail1, tail2 ...}), ...]
+    '''
     n_cores, pool, range_list = get_params_for_mp(len(head2tails))
     results = pool.map(count_all_paths, zip([e2re] * n_cores,
                                             [max_path_len] * n_cores,
@@ -15,6 +24,37 @@ def count_all_paths_with_mp(e2re, max_path_len, head2tails):
         res.update(ht2paths)
 
     return res
+
+def count_all_paths_with_joblib(e2re, max_path_len, head2tails):
+    '''
+    A parallel version of count_all_paths using joblib
+
+    :param e2re: entity to relation dictionary
+    :param max_path_len: maximum length of paths
+    :param head2tails: [(head, {tail1, tail2 ...}), ...]
+    '''
+    # Define a function to process each subset of head2tails
+    def process_subset(e2re, max_path_len, subset, pid):
+        res = {}
+        for i, (head, tails) in enumerate(subset):
+            # Call count_all_paths for each head-tail pair
+            paths = count_all_paths((e2re, max_path_len, [(head, tails)], pid))
+            res.update(paths)
+            print(f'pid {pid}: {i + 1}/{len(subset)}', end='\r', flush=True)  # Update progress
+        return res
+
+    # Split head2tails into smaller subsets for parallel processing
+    n_jobs = 8  # Use all available CPU cores
+    results = Parallel(n_jobs=n_jobs)(delayed(process_subset)(e2re, max_path_len, subset, pid)
+                                      for pid, subset in enumerate(np.array_split(head2tails, n_jobs)))
+
+    # Merge results from all subsets into a single dictionary
+    res = defaultdict(set)
+    for ht2paths in results:
+        res.update(ht2paths)
+
+    return res
+
 
 
 def get_params_for_mp(n_triples):
@@ -39,12 +79,13 @@ def count_all_paths(inputs):
     ht2paths = {}
     for i, (head, tails) in enumerate(head2tails):
         ht2paths.update(bfs(head, tails, e2re, max_path_len))
-        print('pid %d:  %d / %d' % (pid, i, len(head2tails)))
-    print('pid %d  done' % pid)
+        # print(':count_all_paths(): pid %d:  %d / %d' % (pid, i, len(head2tails)))
+    # print('pid %d  done' % pid)
     return ht2paths
 
 
 def bfs(head, tails, e2re, max_path_len):
+    # [time gap info]? 
     # put length-1 paths into all_paths
     # each element in all_paths is a path consisting of a sequence of (relation, entity)
     all_paths = [[i] for i in e2re[head]]
@@ -68,20 +109,6 @@ def bfs(head, tails, e2re, max_path_len):
             ht2paths[(head, tail)].add(tuple([i[0] for i in path]))
 
     return ht2paths
-
-
-def count_paths(triplets, ht2paths, train_set):
-    res = []
-
-    for head, tail, relation in triplets:
-        path_set = ht2paths[(head, tail)]
-        if (tail, head, relation) in train_set:
-            path_list = list(path_set)
-        else:
-            path_list = list(path_set - {tuple([relation])})
-        res.append([list(i) for i in path_list])
-
-    return res
 
 
 def get_path_dict_and_length(train_paths, valid_paths, test_paths, null_relation, max_path_len):

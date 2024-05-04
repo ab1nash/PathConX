@@ -8,7 +8,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from data_loader_interface import DataLoaderIface
 
 # todo
-from utils import count_all_paths_with_mp, count_paths, get_path_dict_and_length, one_hot_path_id, sample_paths
+from utils import count_all_paths_with_mp, get_path_dict_and_length, one_hot_path_id, sample_paths
 
 
 class DataLoaderKG(DataLoaderIface):
@@ -123,6 +123,19 @@ class DataLoaderKG(DataLoaderIface):
         return head2tails
 
 
+    def count_paths(triplets, ht2paths, train_set):
+        res = []
+
+        for head, tail, relation in triplets:
+            path_set = ht2paths[(head, tail)]
+            if (tail, head, relation) in train_set:
+                path_list = list(path_set)
+            else:
+                path_list = list(path_set - {tuple([relation])})
+            res.append([list(i) for i in path_list])
+
+        return res
+
     def get_paths(self, train_triplets, valid_triplets, test_triplets):
         directory = '../data/' + self.args.dataset + '/cache/'
         length = str(self.args.max_path_len)
@@ -141,9 +154,9 @@ class DataLoaderKG(DataLoaderIface):
             head2tails = self.get_h2t(train_triplets, valid_triplets, test_triplets)
             ht2paths = count_all_paths_with_mp(self.e2re, self.args.max_path_len, [(k, v) for k, v in head2tails.items()])
             train_set = set(train_triplets)
-            train_paths = count_paths(train_triplets, ht2paths, train_set)
-            valid_paths = count_paths(valid_triplets, ht2paths, train_set)
-            test_paths = count_paths(test_triplets, ht2paths, train_set)
+            train_paths = self.count_paths(train_triplets, ht2paths, train_set)
+            valid_paths = self.count_paths(valid_triplets, ht2paths, train_set)
+            test_paths = self.count_paths(test_triplets, ht2paths, train_set)
 
             print('dumping paths to files ...')
             pickle.dump(train_paths, open(directory + 'train_paths_' + length + '.pkl', 'wb'))
@@ -157,6 +170,7 @@ class DataLoaderKG(DataLoaderIface):
                     paths.append([])
 
         return train_paths, valid_paths, test_paths
+
 
 
     def load_data(self, model_args):
