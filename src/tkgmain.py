@@ -164,7 +164,7 @@ def main():
     # ===== DDB14 ===== #
     parser.add_argument('--dataset', type=str, default='icewsmall', help='dataset name')
     parser.add_argument('--epoch', type=int, default=20, help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=128, help='batch size')
+    parser.add_argument('--batch_size', type=int, default=32, help='batch size')
     parser.add_argument('--dim', type=int, default=64, help='hidden dimension')
     parser.add_argument('--l2', type=float, default=1e-7, help='l2 regularization weight')
     parser.add_argument('--lr', type=float, default=5e-3, help='learning rate')
@@ -194,7 +194,7 @@ def main():
     dataLoaderTKGInstance = DataLoaderTKG()
     data = dataLoaderTKGInstance.load_data(args)
 
-    train(args, data)
+    train(args, data, is_tkg = True)
 
 
 if __name__ == '__main__':

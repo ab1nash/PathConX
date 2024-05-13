@@ -8,7 +8,7 @@ from utils import sparse_to_tuple
 args = None
 
 
-def train(model_args, data):
+def train(model_args, data, is_tkg = False):
     global args, model, sess
     args = model_args
 
@@ -48,10 +48,14 @@ def train(model_args, data):
             test_entity_pairs = test_entity_pairs.cuda()
 
     # prepare for top-k evaluation
-    # todohere
     true_relations = defaultdict(set)
-    for head, tail, relation in train_triplets + valid_triplets + test_triplets:
-        true_relations[(head, tail)].add(relation)
+
+    if is_tkg:
+        for head, tail, relation, _ in train_triplets + valid_triplets + test_triplets:
+            true_relations[(head, tail)].add(relation)
+    else:
+        for head, tail, relation in train_triplets + valid_triplets + test_triplets:
+            true_relations[(head, tail)].add(relation)
     best_valid_acc = 0.0
     final_res = None  # acc, mrr, mr, hit1, hit3, hit5
 
@@ -85,7 +89,7 @@ def train(model_args, data):
         # show evaluation result for current epoch
         current_res = 'acc: %.4f' % test_acc
         print('train acc: %.4f   valid acc: %.4f   test acc: %.4f' % (train_acc, valid_acc, test_acc))
-        mrr, mr, hit1, hit3, hit5 = calculate_ranking_metrics(test_triplets, test_scores, true_relations)
+        mrr, mr, hit1, hit3, hit5 = calculate_ranking_metrics(test_triplets, test_scores, true_relations, is_tkg)
         current_res += '   mrr: %.4f   mr: %.4f   h1: %.4f   h3: %.4f   h5: %.4f' % (mrr, mr, hit1, hit3, hit5)
         print('           mrr: %.4f   mr: %.4f   h1: %.4f   h3: %.4f   h5: %.4f' % (mrr, mr, hit1, hit3, hit5))
         print()
@@ -141,9 +145,13 @@ def evaluate(entity_pairs, paths, labels):
     return float(np.mean(acc_list)), np.array(scores_list)
 
 
-def calculate_ranking_metrics(triplets, scores, true_relations):
+def calculate_ranking_metrics(triplets, scores, true_relations, is_tkg):
     for i in range(scores.shape[0]):
-        head, tail, relation = triplets[i]
+        if is_tkg:
+            head, tail, relation, _ = triplets[i]
+        else:
+            head, tail, relation = triplets[i]
+
         for j in true_relations[head, tail] - {relation}:
             scores[i, j] -= 1.0
 
